@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mapa de Vitoria-Gasteiz – Guía práctica</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #f5f7fa;
+      color: #1a1a1a;
+      line-height: 1.45;
+    }
+    header {
+      background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%);
+      color: white;
+      padding: 0.9rem 1.2rem;
+      text-align: center;
+    }
+    header h1 { font-size: 1.45rem; font-weight: 700; margin-bottom: 0.15rem; }
+    header p { font-size: 0.88rem; opacity: 0.92; }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      justify-content: center;
+      padding: 0.75rem;
+      background: white;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    button {
+      background: #2c5282;
+      color: white;
+      border: none;
+      padding: 0.5rem 1.1rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover { background: #1e3a5f; }
+    button.print-btn { background: #c53030; }
+    button.print-btn:hover { background: #9b2c2c; }
+    .note {
+      background: #ebf8ff;
+      border-left: 4px solid #3182ce;
+      padding: 0.6rem 1rem;
+      margin: 0.75rem 1rem;
+      border-radius: 0 6px 6px 0;
+      font-size: 0.85rem;
+      color: #2c5282;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0.75rem;
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      gap: 1rem;
+    }
+    @media (max-width: 900px) {
+      .container { grid-template-columns: 1fr; }
+    }
+    .map-wrap {
+      position: relative;
+      height: 540px;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+      border: 1px solid #e2e8f0;
+    }
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+    .inset {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      width: 180px;
+      height: 140px;
+      background: white;
+      border: 2.5px solid #222;
+      border-radius: 4px;
+      z-index: 1000;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+      overflow: hidden;
+    }
+    .inset-title {
+      background: #222;
+      color: white;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-align: center;
+      padding: 3px 4px;
+      letter-spacing: 0.02em;
+    }
+    #map-inset {
+      width: 100%;
+      height: calc(100% - 22px);
+    }
+    .sidebar {
+      background: white;
+      border-radius: 8px;
+      padding: 1rem;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+      border: 1px solid #e2e8f0;
+      max-height: 540px;
+      overflow-y: auto;
+      font-size: 0.82rem;
+    }
+    .sidebar h2 {
+      font-size: 1.05rem;
+      color: #1e3a5f;
+      margin-bottom: 0.6rem;
+      border-bottom: 2px solid #2c5282;
+      padding-bottom: 0.3rem;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.35rem;
+    }
+    .shape {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+      border: 2px solid #222;
+      background: #fff;
+    }
+    .shape.circle { border-radius: 50%; }
+    .shape.square { border-radius: 2px; }
+    .shape.diamond {
+      width: 12px; height: 12px;
+      transform: rotate(45deg);
+      margin: 2px;
+    }
+    .shape.triangle {
+      width: 0; height: 0;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-bottom: 14px solid #222;
+      background: none;
+      border-top: none;
+    }
+    .shape.star {
+      width: 16px; height: 16px;
+      background: #222;
+      clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+      border: none;
+    }
+    .shape.cross {
+      width: 14px; height: 14px;
+      background: transparent;
+      border: none;
+      position: relative;
+    }
+    .shape.cross::before, .shape.cross::after {
+      content: '';
+      position: absolute;
+      background: #222;
+    }
+    .shape.cross::before {
+      width: 14px; height: 3px;
+      top: 5.5px; left: 0;
+    }
+    .shape.cross::after {
+      width: 3px; height: 14px;
+      top: 0; left: 5.5px;
+    }
+    .poi-list { margin-top: 0.9rem; }
+    .poi-list h3 {
+      font-size: 0.88rem;
+      color: #2d3748;
+      margin: 0.7rem 0 0.3rem;
+      padding-bottom: 0.15rem;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .poi {
+      margin-bottom: 0.4rem;
+      padding-left: 0.3rem;
+      border-left: 3px solid #e2e8f0;
+    }
+    .poi strong { color: #1a202c; font-size: 0.84rem; }
+    .poi .addr { color: #4a5568; font-size: 0.76rem; }
+    footer {
+      text-align: center;
+      padding: 0.9rem;
+      font-size: 0.75rem;
+      color: #718096;
+      border-top: 1px solid #e2e8f0;
+      margin-top: 0.5rem;
+    }
+
+    @media print {
+      @page {
+        size: 297mm 210mm; /* A4 horizontal explícito */
+        margin: 5mm;
+      }
+      html, body {
+        width: 287mm !important;
+        height: 200mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: white !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        overflow: hidden !important;
+      }
+      header {
+        background: #1e3a5f !important;
+        padding: 2.5mm 4mm !important;
+        color: white !important;
+        width: 100% !important;
+      }
+      header h1 { font-size: 11pt !important; margin: 0 !important; }
+      header p { font-size: 7.5pt !important; margin: 0 !important; }
+      .controls, .note, button, footer { display: none !important; }
+
+      /* Layout tipo mapa turístico: mapa grande + leyenda a la derecha */
+      .container {
+        display: flex !important;
+        flex-direction: row !important;
+        width: 287mm !important;
+        height: 178mm !important;
+        max-width: none !important;
+        gap: 3mm !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+      .map-wrap {
+        flex: 1 1 auto !important;
+        width: auto !important;
+        height: 178mm !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        border: 1.5px solid #222 !important;
+        position: relative !important;
+        overflow: hidden !important;
+      }
+      #map {
+        width: 100% !important;
+        height: 100% !important;
+        background: #fff !important;
+      }
+      .leaflet-container {
+        width: 100% !important;
+        height: 100% !important;
+        background: #fff !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      .leaflet-tile,
+      .leaflet-tile-pane img,
+      .leaflet-layer img,
+      .leaflet-tile-container img {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        max-width: none !important;
+      }
+      .leaflet-control-container { display: none !important; }
+
+      /* Recuadro cárcel */
+      .inset {
+        width: 50mm !important;
+        height: 40mm !important;
+        bottom: 3mm !important;
+        left: 3mm !important;
+        border: 2px solid #000 !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+      }
+      .inset-title {
+        font-size: 6.5pt !important;
+        padding: 1.5px 2px !important;
+        background: #000 !important;
+        color: #fff !important;
+      }
+
+      /* Leyenda lateral (estilo mapa turístico) */
+      .sidebar {
+        flex: 0 0 62mm !important;
+        width: 62mm !important;
+        max-width: 62mm !important;
+        height: 178mm !important;
+        max-height: 178mm !important;
+        overflow: hidden !important;
+        box-shadow: none !important;
+        border: 1.5px solid #222 !important;
+        border-radius: 0 !important;
+        padding: 2.5mm !important;
+        font-size: 6.8pt !important;
+        background: white !important;
+        margin: 0 !important;
+      }
+      .sidebar h2 {
+        font-size: 8.5pt !important;
+        margin-bottom: 1.5mm !important;
+        padding-bottom: 1mm !important;
+        border-bottom: 1.5px solid #1e3a5f !important;
+      }
+      .legend-item {
+        margin-bottom: 1mm !important;
+        gap: 2mm !important;
+      }
+      .shape { width: 9px; height: 9px; border-width: 1.5px; }
+      .shape.diamond { width: 7px; height: 7px; margin: 1px; }
+      .shape.triangle {
+        border-left-width: 4.5px;
+        border-right-width: 4.5px;
+        border-bottom-width: 8px;
+      }
+      .shape.star { width: 10px; height: 10px; }
+      .shape.cross { width: 9px; height: 9px; }
+      .shape.cross::before { width: 9px; height: 2.2px; top: 3.4px; }
+      .shape.cross::after { width: 2.2px; height: 9px; left: 3.4px; }
+      .poi-list { margin-top: 2mm !important; }
+      .poi-list h3 {
+        font-size: 7.2pt !important;
+        margin: 1.5mm 0 0.6mm !important;
+        padding-bottom: 0.4mm !important;
+      }
+      .poi {
+        margin-bottom: 0.9mm !important;
+        padding-left: 1.2mm !important;
+        border-left-width: 2px !important;
+      }
+      .poi strong { font-size: 6.8pt !important; }
+      .poi .addr { font-size: 6pt !important; }
+      a { color: inherit; text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Mapa práctico de Vitoria-Gasteiz</h1>
+    <p>Guía clara de puntos de interés · Imprimir en HORIZONTAL · 1 hoja A4</p>
+  </header>
+
+  <div class="controls">
+    <button class="print-btn">🖨 Imprimir en HORIZONTAL (1 hoja A4)</button>
+    <button onclick="centrarCiudad()">Centrar ciudad</button>
+  </div>
+
+  <div class="note">
+    <strong>📍 Cómo imprimir bien:</strong>
+    1) Pulsa el botón rojo &nbsp;
+    2) En el diálogo del navegador elige <strong>Orientación → Horizontal (Landscape)</strong> &nbsp;
+    3) Márgenes: Mínimos &nbsp;·&nbsp; Escala: 100%
+    <br>El mapa principal es la ciudad; la cárcel va en el recuadro inferior izquierdo (estilo Canarias).
+  </div>
+
+  <div class="container">
+    <div class="map-wrap">
+      <div id="map"></div>
+      <div class="inset">
+        <div class="inset-title">CÁRCEL (Nanclares) · 12 km oeste</div>
+        <div id="map-inset"></div>
+      </div>
+    </div>
+
+    <aside class="sidebar">
+      <h2>Leyenda (formas)</h2>
+      <div class="legend-item"><span class="shape circle"></span> Juzgados</div>
+      <div class="legend-item"><span class="shape square"></span> Residencia Ondare</div>
+      <div class="legend-item"><span class="shape diamond"></span> Hospitales</div>
+      <div class="legend-item"><span class="shape triangle"></span> Estadio</div>
+      <div class="legend-item"><span class="shape star"></span> Transporte</div>
+      <div class="legend-item"><span class="shape cross"></span> Interés turístico</div>
+      <div class="legend-item"><span class="shape circle" style="background:#222;"></span> Cárcel (en recuadro)</div>
+
+      <div class="poi-list">
+        <h3>● Juzgados</h3>
+        <div class="poi">
+          <strong>Palacio de Justicia</strong><br>
+          <span class="addr">Av. Gasteiz, 18 · 01008</span>
+        </div>
+
+        <h3>■ Residencia</h3>
+        <div class="poi">
+          <strong>Residencia Ondare</strong><br>
+          <span class="addr">Portal de Zurbano, 6 · 01013</span>
+        </div>
+
+        <h3>◆ Hospitales</h3>
+        <div class="poi">
+          <strong>Txagorritxu</strong><br>
+          <span class="addr">José Achótegui, s/n · 01009</span>
+        </div>
+        <div class="poi">
+          <strong>Santiago</strong><br>
+          <span class="addr">Olaguibel, 29 · 01004</span>
+        </div>
+        <div class="poi">
+          <strong>Vithas San José</strong><br>
+          <span class="addr">Beato T. Zumárraga, 10 · 01008</span>
+        </div>
+        <div class="poi">
+          <strong>Quirónsalud</strong><br>
+          <span class="addr">Esperanza, 3 · 01002</span>
+        </div>
+
+        <h3>▲ Estadio</h3>
+        <div class="poi">
+          <strong>Mendizorrotza</strong><br>
+          <span class="addr">Pº Cervantes, s/n · 01007</span>
+        </div>
+
+        <h3>★ Transporte</h3>
+        <div class="poi">
+          <strong>Estación Tren</strong><br>
+          <span class="addr">Plz. Estación, 1 · 01005</span>
+        </div>
+        <div class="poi">
+          <strong>Estación Autobuses</strong><br>
+          <span class="addr">Plz. Euskaltzaindia, s/n · 01010<br>(Lakua / Ibaiondo)</span>
+        </div>
+
+        <h3>✚ Interés</h3>
+        <div class="poi">
+          <strong>Pl. Virgen Blanca</strong><br>
+          <span class="addr">Centro histórico</span>
+        </div>
+        <div class="poi">
+          <strong>Catedral Santa María</strong><br>
+          <span class="addr">Pl. Santa María</span>
+        </div>
+        <div class="poi">
+          <strong>Parque La Florida</strong><br>
+          <span class="addr">Pº de la Florida</span>
+        </div>
+        <div class="poi">
+          <strong>Ayuntamiento</strong><br>
+          <span class="addr">Plaza de España</span>
+        </div>
+
+        <h3>● Cárcel (ver recuadro)</h3>
+        <div class="poi">
+          <strong>CP Álava (Zaballa)</strong><br>
+          <span class="addr">Portillo S. Miguel, 1 · 01230<br>Nanclares de la Oca · ~12 km oeste</span>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <footer>
+    Mapa basado en OpenStreetMap · Coordenadas verificadas<br>
+    Imprimir en horizontal (landscape) · 1 hoja A4 · Cárcel en recuadro
+  </footer>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script>
+    const centro = [42.850, -2.675];
+    const map = L.map('map', { zoomControl: true }).setView(centro, 13);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    function crearForma(tipo) {
+      let html = '';
+      const base = 'width:16px;height:16px;border:2.5px solid #111;background:#fff;box-shadow:0 0 0 1px #fff;';
+      switch(tipo) {
+        case 'circle':
+          html = '<div style="' + base + 'border-radius:50%;"></div>'; break;
+        case 'square':
+          html = '<div style="' + base + 'border-radius:2px;"></div>'; break;
+        case 'diamond':
+          html = '<div style="width:12px;height:12px;border:2.5px solid #111;background:#fff;transform:rotate(45deg);margin:2px;box-shadow:0 0 0 1px #fff;"></div>'; break;
+        case 'triangle':
+          html = '<div style="width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:15px solid #111;"></div>'; break;
+        case 'star':
+          html = '<div style="width:16px;height:16px;background:#111;clip-path:polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);"></div>'; break;
+        case 'cross':
+          html = '<div style="position:relative;width:14px;height:14px;"><div style="position:absolute;width:14px;height:3.5px;background:#111;top:5.25px;left:0;"></div><div style="position:absolute;width:3.5px;height:14px;background:#111;top:0;left:5.25px;"></div></div>'; break;
+        case 'filled':
+          html = '<div style="' + base + 'border-radius:50%;background:#111;"></div>'; break;
+        default:
+          html = '<div style="' + base + 'border-radius:50%;"></div>';
+      }
+      return L.divIcon({
+        className: '',
+        html: html,
+        iconSize: [18, 18],
+        iconAnchor: [9, 9],
+        popupAnchor: [0, -10]
+      });
+    }
+
+    const iconos = {
+      juzgados: crearForma('circle'),
+      alojamiento: crearForma('square'),
+      hospital: crearForma('diamond'),
+      estadio: crearForma('triangle'),
+      transporte: crearForma('star'),
+      interes: crearForma('cross'),
+      carcel: crearForma('filled')
+    };
+
+    const puntosCiudad = [
+      { nombre: '● Palacio de Justicia / Juzgados', lat: 42.8436348, lng: -2.6825105, tipo: 'juzgados',
+        desc: 'Avenida Gasteiz, 18 · 01008<br>Sede principal de los Juzgados' },
+      { nombre: '■ Residencia Ondare', lat: 42.8631095, lng: -2.6480249, tipo: 'alojamiento',
+        desc: 'Portal de Zurbano, 6 · 01013<br>Dónde se hospeda (cerca Salburua / Buesa Arena)' },
+      { nombre: '◆ Hospital Txagorritxu', lat: 42.855643, lng: -2.689213, tipo: 'hospital',
+        desc: 'José Achótegui, s/n · 01009<br>Hospital principal público (urgencias)' },
+      { nombre: '◆ Hospital Santiago', lat: 42.8498, lng: -2.6675, tipo: 'hospital',
+        desc: 'Olaguibel, 29 · 01004<br>Sede Santiago – Hospital Universitario' },
+      { nombre: '◆ Hospital Vithas San José', lat: 42.8449, lng: -2.6782, tipo: 'hospital',
+        desc: 'Beato Tomás de Zumárraga, 10 · 01008<br>Hospital privado de referencia' },
+      { nombre: '◆ Hospital Quirónsalud', lat: 42.8508, lng: -2.6752, tipo: 'hospital',
+        desc: 'Calle de la Esperanza, 3 · 01002<br>Hospital privado' },
+      { nombre: '▲ Estadio Mendizorrotza', lat: 42.837111, lng: -2.688044, tipo: 'estadio',
+        desc: 'Paseo de Cervantes, s/n · 01007<br>Campo del Deportivo Alavés' },
+      { nombre: '★ Estación de Tren', lat: 42.841528, lng: -2.672611, tipo: 'transporte',
+        desc: 'Plazuela de la Estación, 1 · 01005<br>Estación principal Renfe/Adif' },
+      { nombre: '★ Estación de Autobuses', lat: 42.85887, lng: -2.68503, tipo: 'transporte',
+        desc: 'Plaza de Euskaltzaindia, s/n · 01010<br>Zona Lakua (frente al Gobierno Vasco)' },
+      { nombre: '✚ Plaza de la Virgen Blanca', lat: 42.84658, lng: -2.67338, tipo: 'interes',
+        desc: 'Centro histórico<br>Plaza principal de la ciudad' },
+      { nombre: '✚ Catedral de Santa María', lat: 42.85085, lng: -2.67255, tipo: 'interes',
+        desc: 'Plaza de Santa María<br>Catedral gótica (Patrimonio)' },
+      { nombre: '✚ Parque de La Florida', lat: 42.8448, lng: -2.6758, tipo: 'interes',
+        desc: 'Paseo de la Florida<br>Parque histórico céntrico' },
+      { nombre: '✚ Ayuntamiento / Pl. España', lat: 42.8462, lng: -2.6721, tipo: 'interes',
+        desc: 'Plaza de España<br>Ayuntamiento de Vitoria-Gasteiz' }
+    ];
+
+    const marcadores = [];
+    puntosCiudad.forEach(function(p) {
+      const m = L.marker([p.lat, p.lng], { icon: iconos[p.tipo] })
+        .addTo(map)
+        .bindPopup('<strong>' + p.nombre + '</strong><br>' + p.desc);
+      marcadores.push(m);
+    });
+
+    function centrarCiudad() {
+      const grupo = L.featureGroup(marcadores);
+      map.fitBounds(grupo.getBounds().pad(0.12));
+    }
+
+    setTimeout(centrarCiudad, 350);
+
+    // INSET CÁRCEL
+    const mapInset = L.map('map-inset', {
+      zoomControl: false,
+      attributionControl: false,
+      dragging: false,
+      scrollWheelZoom: false,
+      doubleClickZoom: false,
+      boxZoom: false,
+      keyboard: false
+    }).setView([42.80178, -2.78533], 13);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18
+    }).addTo(mapInset);
+
+    L.marker([42.8017778, -2.7853333], { icon: iconos.carcel })
+      .addTo(mapInset)
+      .bindPopup('● Centro Penitenciario de Álava (Zaballa)<br>Portillo de San Miguel, 1 · 01230<br>Nanclares de la Oca');
+
+    async function prepararImpresion() {
+      // Aviso para el usuario
+      alert('IMPORTANTE: En el diálogo de impresión elige:\n\n→ Orientación: HORIZONTAL (Landscape)\n→ Márgenes: Mínimos\n→ Escala: 100%\n\nAsí el mapa saldrá bien a una hoja.');
+      centrarCiudad();
+      map.invalidateSize(true);
+      mapInset.invalidateSize(true);
+      map.eachLayer(function(l) { if (l.redraw) l.redraw(); });
+      mapInset.eachLayer(function(l) { if (l.redraw) l.redraw(); });
+      return new Promise(function(r) { setTimeout(r, 800); });
+    }
+
+    document.querySelector('.print-btn').addEventListener('click', async function(e) {
+      e.preventDefault();
+      await prepararImpresion();
+      window.print();
+    });
+
+    window.addEventListener('beforeprint', function() {
+      centrarCiudad();
+      map.invalidateSize(true);
+      mapInset.invalidateSize(true);
+    });
+  </script>
+</body>
+</html>
